@@ -27,7 +27,7 @@ parser.add_argument('--synth', help='set if wanting to use synth board only', ac
 parser.add_argument('--buffer', help='seconds in between clearing buffer', type=int, default=3)
 parser.add_argument('--debug', help='additional logging', action='store_true')
 parser.set_defaults(synth = True) # TODO: Remove when ready to use real board
-parser.set_defaults(debug = True)
+# parser.set_defaults(debug = True)
 args = parser.parse_args()
 
 # initialize this session's file
@@ -72,6 +72,13 @@ board.start_stream()
 time.sleep(BUFFER_TIME)
 for i in range(3): #TODO: make while(True) and elegantly shutdown when board is shutdown or keyboard interrupt
     data = board.get_board_data()
+    channel = eegs[1]
+    print(data.shape)
+    foo = np.mean(data[channel])
+    log_info(f"eeg type is {type(data[channel])} with shape {data[eegs[1]].shape}")
+    DataFilter.perform_highpass (data[channel], BoardShim.get_sampling_rate (board_id), 20.0, 5, FilterTypes.CHEBYSHEV_TYPE_1.value, 1)
+    # DataFilter.perform_bandstop (data[channel], BoardShim.get_sampling_rate (board_id), 30.0, 1.0, 3, FilterTypes.BUTTERWORTH.value, 0)
+    print(f"is foo the same as data[channel]? {foo == np.mean(data[channel])}")
     indexes = [timestamp, *eegs, *others]
     data_to_write = data[indexes]
     DataFilter.write_file(data=data_to_write, file_name=raw_data_path, file_mode='a')
