@@ -4,20 +4,31 @@ const path = require('path');
 const fs = require('fs');
 const csv = require('@fast-csv/format');
 
-// const initTodaysDir = () => fs.mkdirSync
+// var headers = [["time", "foor", "bewesdar"]]
+// var testStream = fs.createWriteStream('test.csv', { flags: 'w' })
+// csv.writeToStream(testStream, headers)
+// csv.writeToStream(testStream, [[1, 2, 3]])
+
 
 const today = new Date();
 const dayFormatted = `${today.getFullYear()}_${today.getMonth() + 1}_${today.getDate()}`
 const todaysDir = path.join(__dirname, 'sessions_archive', dayFormatted)
-const numSessions = fs.readdir(todaysDir, (err, files) => files.length)
+console.log(`todaysDir is ${todaysDir}`)
+if (!fs.existsSync(todaysDir)) {
+    fs.mkdirSync(todaysDir)
+}
+const todaysSessions = fs.readdirSync(todaysDir)
+const numSessions = todaysSessions.length
+console.log(`numSessions is ${numSessions}`)
+
 // Structure is sessions_archive/date/Session_X/{timeSeries/bandPower/aux}.csv
 const newSeshDir = path.join(todaysDir, `Session_${numSessions + 1}`)
-let timeSeriesStream = fs.createWriteStream(path.join(newSeshDir, "timeSeries.csv"), { flags: 'a' })
-    .on('error', (e) => { console.error("timeSeries WHOOPSIE"); console.error(e) })
-let bandPowerStream = fs.createWriteStream(path.join(newSeshDir, "bandPower.csv"), { flags: 'a' })
-    .on('error', (e) => { console.error("bandPower WHOOPSIE"); console.error(e) })
-let auxilaryStream = fs.createWriteStream(path.join(newSeshDir, "auxilary.csv"), { flags: 'a' })
-    .on('error', (e) => { console.error("aux WHOOPSIE"); console.error(e) })
+fs.mkdirSync(newSeshDir)
+const tsPath = path.join(newSeshDir, "timeSeries.csv")
+const bpPath = path.join(newSeshDir, "bandPower.csv")
+const auxPath = path.join(newSeshDir, "auxillary.csv")
+
+const newWriteStream = (path) => fs.createWriteStream(path, { flags: 'a' }).on('error', e => { console.error(`${path} WHOOPSIE`); console.error(e) })
 
 const timeSeriesHeaders = (numChannels) => {
     let headers = ["time"]
@@ -43,16 +54,19 @@ const bandPowerHeaders = (numChannels) => {
 const initializeSessionCSVs = (numChannels = 8) => {
     const tsHeaders = timeSeriesHeaders(numChannels)
     const bpHeaders = bandPowerHeaders(numChannels)
-    writeToStream(timeSeriesStream, tsHeaders)
-    writeToStream(bandPowerStream, bpHeaders)
+    csv.writeToStream(newWriteStream(tsPath), [tsHeaders], {includeEndRowDelimiter: true})
+    csv.writeToStream(newWriteStream(bpPath), [bpHeaders], {includeEndRowDelimiter: true})
     // TODO: Aux Headers and init
 }
 
 const appendTimeSeries = (row) => {
-    writeToStream(timeSeriesStream, row)
+    console.log('\x1b[32m%s\x1b[0m', `adding ${row} to TimeSeries`)
+    csv.writeToStream(newWriteStream(tsPath), [row], {includeEndRowDelimiter: true})
 }
 const appendBandPower = (row) => {
-    writeToStream(bandPowerStream, row)
+    console.log('\x1b[35m%s\x1b[0m', `adding ${row} to BandPower`)
+
+    csv.writeToStream(newWriteStream(bpPath), [row], {includeEndRowDelimiter: true})
 }
 
 const shutDownStreams = () => {
@@ -62,7 +76,7 @@ const shutDownStreams = () => {
 }
 
 
-module.exports = { shutDownStreams, appendBandPower, appendTimeSeries, initializeSessionCSVs}
+module.exports = { shutDownStreams, appendBandPower, appendTimeSeries, initializeSessionCSVs }
 
 class CsvFile {
     static write(filestream, rows, options) {

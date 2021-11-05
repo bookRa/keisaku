@@ -1,5 +1,6 @@
 // Listens on 3 ports for 3 types of data being sent from OpenBCI GUI
 var udp = require('dgram')
+const { initializeSessionCSVs, appendTimeSeries, appendBandPower } = require('./csvUtils')
 
 let linuxIp = '172.30.53.96'
 
@@ -11,7 +12,7 @@ let timeSeriesPort = 12345
 let bandPowerPort = 12346
 let auxPort = 12347
 
-const createAndBind = (dataType, port, color, parseFn = (datagram) => datagram.toString().slice(0, 10)) => {
+const createAndBind = (dataType, port, color, parseFn = (datagram, timeStamp) => datagram.toString().slice(0, 10)) => {
   let server = udp.createSocket('udp4')
 
   server.on('error', (err) => {
@@ -22,11 +23,11 @@ const createAndBind = (dataType, port, color, parseFn = (datagram) => datagram.t
 
   server.on('message', (msg, info) => {
     let rawMsg = msg.toString()
-    let parsedMsg = parseFn(msg)
+    let parsedMsg = parseFn(msg, Date.now())
     console.log(color, `${Date.now()}:: Raw ${dataType}: ${rawMsg} Parsed:`)
     console.log(color, parsedMsg)
 
-    server.close()
+    // server.close()
   })
 
   server.on('close', () => {
@@ -40,21 +41,23 @@ const createAndBind = (dataType, port, color, parseFn = (datagram) => datagram.t
   return server
 }
 
-const tsParse = (dg) => {
+const tsParse = (dg, timeStamp) => {
   // {“type”:”eeg”, “data”:[0.0,1.0,2.0,3.0]}\r\n
   // (Filtered & Unfiltered) One float for each channel
   let jsonified = JSON.parse(dg.toString())
   let thedata = jsonified.data
+  appendTimeSeries([timeStamp, ...thedata])
   return thedata
 }
 
-const bandPowerParse = (dg) => {
+const bandPowerParse = (dg, timeStamp) => {
   // {“type”:"bandPower", “data”:[[ch1 bands],[ch2 bands],[etc. bands]]}\r\n
   // 5 floats representing Delta, Theta, Alpha, Beta, Gamma band power for each channel in this exact order
   let nested = JSON.parse(dg.toString()).data
   let numChannels = nested.length
   console.log(numChannels + " channels detected")
   let flattened = nested.flat()
+  appendBandPower([timeStamp, ...flattened])
   return flattened
 }
 
@@ -64,12 +67,13 @@ const auxParse = (dg) => {
   // Three (WiFi) or Five (Dongle) digital values as 0 or 1, corresponds to D11, D12, D13, D17, and D18
 }
 
+initializeSessionCSVs()
 let timeSeriesServer = createAndBind('TimeSeries', timeSeriesPort, TSCOLOR, tsParse)
 let bandPowerServer = createAndBind('BandPower', bandPowerPort, BPCOLOR, bandPowerParse)
 let auxServer = createAndBind('Auxillary', auxPort, AUXCOLOR)
 
-// setTimeout(function () {
-//   timeSeriesServer.close()
-//   fftServer.close()
-//   auxServer.close()
-// }, 4000);
+setTimeout(function () {
+  timeSeriesServer.close()
+  bandPowerServer.close()
+  auxServer.close()
+}, 20000);
