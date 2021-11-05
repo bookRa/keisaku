@@ -1,21 +1,15 @@
-// copied from https://c2fo.github.io/fast-csv/docs/formatting/examples#appending-to-a-csv
+// inspired by https://c2fo.github.io/fast-csv/docs/formatting/examples#appending-to-a-csv
 
 const path = require('path');
 const fs = require('fs');
 const csv = require('@fast-csv/format');
-
-// var headers = [["time", "foor", "bewesdar"]]
-// var testStream = fs.createWriteStream('test.csv', { flags: 'w' })
-// csv.writeToStream(testStream, headers)
-// csv.writeToStream(testStream, [[1, 2, 3]])
-
 
 const today = new Date();
 const dayFormatted = `${today.getFullYear()}_${today.getMonth() + 1}_${today.getDate()}`
 const todaysDir = path.join(__dirname, 'sessions_archive', dayFormatted)
 console.log(`todaysDir is ${todaysDir}`)
 if (!fs.existsSync(todaysDir)) {
-    fs.mkdirSync(todaysDir)
+    fs.mkdirSync(todaysDir, {recursive: true})
 }
 const todaysSessions = fs.readdirSync(todaysDir)
 const numSessions = todaysSessions.length
@@ -116,34 +110,3 @@ class CsvFile {
         });
     }
 }
-
-// const csvFile = new CsvFile({
-//     path: path.resolve(__dirname, 'append.tmp.csv'),
-//     // headers to write
-//     headers: ['c', 'b', 'a'],
-// });
-
-// // 1. create the csv
-// csvFile
-//     .create([
-//         { a: 'a1', b: 'b1', c: 'c1' },
-//         { b: 'b2', a: 'a2', c: 'c2' },
-//         { a: 'a3', b: 'b3', c: 'c3' },
-//     ])
-//     // append rows to file
-//     .then(() =>
-//         csvFile.append([
-//             { a: 'a4', b: 'b4', c: 'c4' },
-//             { a: 'a5', b: 'b5', c: 'c5' },
-//         ]),
-//     )
-//     // append another row
-//     .then(() => csvFile.append([{ a: 'a6', b: 'b6', c: 'c6' }]))
-//     .then(() => csvFile.read())
-//     .then(contents => {
-//         console.log(`${contents}`);
-//     })
-//     .catch(err => {
-//         console.error(err.stack);
-//         process.exit(1);
-//     });
