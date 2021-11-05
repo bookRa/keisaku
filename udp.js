@@ -76,4 +76,4 @@ setTimeout(function () {
   timeSeriesServer.close()
   bandPowerServer.close()
   auxServer.close()
-}, 20000);
+}, 3000);
