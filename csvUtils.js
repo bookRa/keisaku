@@ -9,7 +9,7 @@ const dayFormatted = `${today.getFullYear()}_${today.getMonth() + 1}_${today.get
 const todaysDir = path.join(__dirname, 'sessions_archive', dayFormatted)
 console.log(`todaysDir is ${todaysDir}`)
 if (!fs.existsSync(todaysDir)) {
-    fs.mkdirSync(todaysDir, {recursive: true})
+    fs.mkdirSync(todaysDir, { recursive: true })
 }
 const todaysSessions = fs.readdirSync(todaysDir)
 const numSessions = todaysSessions.length
@@ -45,22 +45,27 @@ const bandPowerHeaders = (numChannels) => {
 
 }
 
+const auxHeaders = ["time", "shallow", "deep"]
+
 const initializeSessionCSVs = (numChannels = 8) => {
     const tsHeaders = timeSeriesHeaders(numChannels)
     const bpHeaders = bandPowerHeaders(numChannels)
-    csv.writeToStream(newWriteStream(tsPath), [tsHeaders], {includeEndRowDelimiter: true})
-    csv.writeToStream(newWriteStream(bpPath), [bpHeaders], {includeEndRowDelimiter: true})
-    // TODO: Aux Headers and init
+    csv.writeToStream(newWriteStream(tsPath), [tsHeaders], { includeEndRowDelimiter: true })
+    csv.writeToStream(newWriteStream(bpPath), [bpHeaders], { includeEndRowDelimiter: true })
+    csv.writeToStream(newWriteStream(auxPath), [auxHeaders], { includeEndRowDelimiter: true })
 }
 
 const appendTimeSeries = (row) => {
-    console.log('\x1b[32m%s\x1b[0m', `adding ${row} to TimeSeries`)
-    csv.writeToStream(newWriteStream(tsPath), [row], {includeEndRowDelimiter: true})
+    // console.log('\x1b[32m%s\x1b[0m', `adding ${row} to TimeSeries`)
+    csv.writeToStream(newWriteStream(tsPath), [row], { includeEndRowDelimiter: true })
 }
 const appendBandPower = (row) => {
-    console.log('\x1b[35m%s\x1b[0m', `adding ${row} to BandPower`)
+    // console.log('\x1b[35m%s\x1b[0m', `adding ${row} to BandPower`)
+    csv.writeToStream(newWriteStream(bpPath), [row], { includeEndRowDelimiter: true })
+}
 
-    csv.writeToStream(newWriteStream(bpPath), [row], {includeEndRowDelimiter: true})
+const appendAux = (row) => {
+    csv.writeToStream(newWriteStream(auxPath), [row], { includeEndRowDelimiter: true })
 }
 
 const shutDownStreams = () => {
@@ -70,7 +75,13 @@ const shutDownStreams = () => {
 }
 
 
-module.exports = { shutDownStreams, appendBandPower, appendTimeSeries, initializeSessionCSVs }
+module.exports = {
+    shutDownStreams,
+    appendBandPower,
+    appendTimeSeries,
+    appendAux,
+    initializeSessionCSVs
+}
 
 class CsvFile {
     static write(filestream, rows, options) {
