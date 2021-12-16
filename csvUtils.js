@@ -23,7 +23,11 @@ const tsPath = path.join(newSeshDir, "timeSeries.csv")
 const auxPath = path.join(newSeshDir, "auxillary.csv")
 const focusPath = path.join(newSeshDir, "focus.csv")
 
-const newWriteStream = (path) => fs.createWriteStream(path, { flags: 'a' }).on('error', e => { console.error(`${path} WHOOPSIE`); console.error(e) })
+const newWriteStream = (path) => fs.createWriteStream(path, { flags: 'a' })
+    .on('error', e => {
+        console.error(`${path} WHOOPSIE`);
+        console.error(e)
+    })
 
 const timeSeriesHeaders = (numChannels) => {
     let headers = ["time"]
@@ -33,6 +37,8 @@ const timeSeriesHeaders = (numChannels) => {
     return headers
 }
 
+// Leaving this just in case,
+// but I'll probably calculate BP from Raw (or filtered) timeseries
 const bandPowerHeaders = (numChannels) => {
     let headers = ["time"]
     for (let i = 1; i <= numChannels; i++) {

@@ -15,7 +15,8 @@ const {
   initializeSessionCSVs,
   appendTimeSeries,
   appendBandPower,
-  appendAux } = require('./csvUtils')
+  appendAux, 
+  appendFocus} = require('./csvUtils')
 const { read } = require('fs')
 
 // OpenBCI GUI is running in Windows, this app is running in WSL
@@ -36,9 +37,9 @@ let FOCUSCOLOR = "\x1b[36m" //Cyan
 // in the OpenBCI Networking Widget. 
 // It is a savable setting in the GUI
 let timeSeriesPort = 12345
-let bandPowerPort = 12346
+let focusPort = 12346
 let auxPort = 12347
-let focusPort = 12348
+// let bandPowerPort = 12346
 
 /**
  * Create a UDP server on a particular port
@@ -46,7 +47,7 @@ let focusPort = 12348
  * @param {Number} port the port at which this is being streamed
  * @param {String} color color of the comments
  * @param {Function} parseFn how the raw UDP data will be parsed into a csv
- * @param {Boolean} verbose true if you want verbose comments
+ * @param {Boolean} verbose true if you want verbose logs
  * @returns the UDP server
  */
 const createAndBind = (
@@ -104,7 +105,6 @@ const bandPowerParse = (dg, timeStamp) => {
   return flattened
 }
 
-// TODO: need to practice with real digital data not the random aux synthetic
 const auxParse = (dg, timeStamp) => {
   // {“type”:”auxiliary”,“data”:[0,1,0,1,0]}\r\n
   // Three (WiFi) or Five (Dongle) digital values as 0 or 1, corresponds to D11, D12, D13, D17, and D18
@@ -117,6 +117,16 @@ const auxParse = (dg, timeStamp) => {
   appendAux([timeStamp, ...filteredData])
   return filteredData
 
+}
+
+const focusParse = (dg, timeStamp) => {
+  // {"type":"focus","data":0.0]}
+  let jsonified = JSON.parse(dg.toString())
+  let thedata = jsonified.data
+  // data comes in as a float but signal is actually a BOOL so turn to int
+  let focusMeasure = thedata | 0 // Bitwise OR is best https://stackoverflow.com/a/12837315/10167851
+  appendFocus([timeStamp, focusMeasure])
+  return focusMeasure
 }
 
 let timeSeriesServer
@@ -135,7 +145,7 @@ stdin.on('data', (keyPress) => {
   else if (keyPress === "s") {
     initializeSessionCSVs()
     timeSeriesServer = createAndBind('TimeSeries', timeSeriesPort, TSCOLOR, tsParse)
-    focusServer = createAndBind('Focus Estimate', focusPort, FOCUSCOLOR, verbose = true)
+    focusServer = createAndBind('Focus Estimate', focusPort, FOCUSCOLOR, focusParse, verbose = true)
     // bandPowerServer = createAndBind('BandPower', bandPowerPort, BPCOLOR, bandPowerParse)
     auxServer = createAndBind('Auxillary', auxPort, AUXCOLOR, auxParse, verbose = true)
   }
