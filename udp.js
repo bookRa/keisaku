@@ -1,22 +1,54 @@
-// Listens on 3 ports for 3 types of data being sent from OpenBCI GUI
+// This Server listens on 3 ports for 3 types of data being sent from OpenBCI GUI
 const { timeStamp } = require('console')
-var udp = require('dgram')
+const udp = require('dgram')
+const os = require('os')
+
+// Initialize keypress listening for the node CLI app (https://stackoverflow.com/a/12506613/10167851)
+const readline = require('readline')
+const { stdin } = require('process')
+readline.emitKeypressEvents(stdin)
+stdin.setRawMode(true)
+stdin.resume()
+stdin.setEncoding('utf8')
+
 const {
   initializeSessionCSVs,
   appendTimeSeries,
   appendBandPower,
   appendAux } = require('./csvUtils')
+const { read } = require('fs')
 
-let linuxIp = '172.30.2.136'
+// OpenBCI GUI is running in Windows, this app is running in WSL
+let linuxIp = os.networkInterfaces().eth0[0].address
+console.log('\x1b[31m%s\x1b[0m', "UDP server running on the following IP. " +
+  "Copy & Paste to OpenBCI Networking Widget")
+console.log('\x1b[31m%s\x1b[0m', linuxIp)
+// TODO: auto-copy to clipboard so that I can just
+// paste into the GUI (Or modify GUI so it sets IPs to WSL Host)
 
-let TSCOLOR = '\x1b[32m%s\x1b[0m'
-let BPCOLOR = '\x1b[35m%s\x1b[0m'
-let AUXCOLOR = '\x1b[33m%s\x1b[0m'
 
+let TSCOLOR = '\x1b[32m%s\x1b[0m' //Green
+let BPCOLOR = '\x1b[33m%s\x1b[0m' //Yellow
+let AUXCOLOR = '\x1b[35m%s\x1b[0m' //Magenta
+let FOCUSCOLOR = "\x1b[36m" //Cyan
+
+// The following ports must correspond to the ports
+// in the OpenBCI Networking Widget. 
+// It is a savable setting in the GUI
 let timeSeriesPort = 12345
 let bandPowerPort = 12346
 let auxPort = 12347
+let focusPort = 12348
 
+/**
+ * Create a UDP server on a particular port
+ * @param {String} dataType name the type of data being proccessed
+ * @param {Number} port the port at which this is being streamed
+ * @param {String} color color of the comments
+ * @param {Function} parseFn how the raw UDP data will be parsed into a csv
+ * @param {Boolean} verbose true if you want verbose comments
+ * @returns the UDP server
+ */
 const createAndBind = (
   dataType,
   port,
@@ -38,8 +70,6 @@ const createAndBind = (
       console.log(color, `${Date.now()}:: Raw ${dataType}: ${rawMsg} Parsed:`)
       console.log(color, parsedMsg)
     }
-
-    // server.close()
   })
 
   server.on('close', () => {
@@ -89,13 +119,37 @@ const auxParse = (dg, timeStamp) => {
 
 }
 
-initializeSessionCSVs()
-let timeSeriesServer = createAndBind('TimeSeries', timeSeriesPort, TSCOLOR, tsParse)
-let bandPowerServer = createAndBind('BandPower', bandPowerPort, BPCOLOR, bandPowerParse)
-let auxServer = createAndBind('Auxillary', auxPort, AUXCOLOR, auxParse, verbose = true)
+let timeSeriesServer
+// let bandPowerServer
+let auxServer
+let focusServer
 
-setTimeout(function () {
-  timeSeriesServer.close()
-  bandPowerServer.close()
-  auxServer.close()
-}, 3000);
+stdin.on('data', (keyPress) => {
+
+  // close app on ctrl-c or ctrl-d
+  if (keyPress === '\u0003' || keyPress === '\u0004') {
+    console.log("aborting Session and closing without uploading data")
+    process.exit()
+  }
+
+  else if (keyPress === "s") {
+    initializeSessionCSVs()
+    timeSeriesServer = createAndBind('TimeSeries', timeSeriesPort, TSCOLOR, tsParse)
+    focusServer = createAndBind('Focus Estimate', focusPort, FOCUSCOLOR, verbose = true)
+    // bandPowerServer = createAndBind('BandPower', bandPowerPort, BPCOLOR, bandPowerParse)
+    auxServer = createAndBind('Auxillary', auxPort, AUXCOLOR, auxParse, verbose = true)
+  }
+
+  else if (keyPress === "c") {
+    // close and upload data to the cloud
+    try { timeSeriesServer.close() }
+    catch (e) { console.log("error closing timeseries server"); console.log(e) }
+    // try { bandPowerServer.close() }
+    // catch (e) { console.log("error closingbandPowerServer"); console.log(e) }
+    try { focusServer.close() }
+    catch (e) { console.log("error closing focusServer"); console.log(e) }
+    try { auxServer.close() }
+    catch (e) { console.log("error closing auxServer"); console.log(e) }
+    process.exit()
+  }
+})

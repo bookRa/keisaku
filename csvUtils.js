@@ -15,12 +15,13 @@ const todaysSessions = fs.readdirSync(todaysDir)
 const numSessions = todaysSessions.length
 console.log(`numSessions is ${numSessions}`)
 
-// Structure is sessions_archive/date/Session_X/{timeSeries/bandPower/aux}.csv
+// Structure is sessions_archive/date/Session_X/{timeSeries/bandPower/aux/focus}.csv
 const newSeshDir = path.join(todaysDir, `Session_${numSessions + 1}`)
 fs.mkdirSync(newSeshDir)
 const tsPath = path.join(newSeshDir, "timeSeries.csv")
-const bpPath = path.join(newSeshDir, "bandPower.csv")
+// const bpPath = path.join(newSeshDir, "bandPower.csv")
 const auxPath = path.join(newSeshDir, "auxillary.csv")
+const focusPath = path.join(newSeshDir, "focus.csv")
 
 const newWriteStream = (path) => fs.createWriteStream(path, { flags: 'a' }).on('error', e => { console.error(`${path} WHOOPSIE`); console.error(e) })
 
@@ -45,14 +46,16 @@ const bandPowerHeaders = (numChannels) => {
 
 }
 
-const auxHeaders = ["time", "shallow", "deep"]
 
 const initializeSessionCSVs = (numChannels = 8) => {
     const tsHeaders = timeSeriesHeaders(numChannels)
-    const bpHeaders = bandPowerHeaders(numChannels)
+    // const bpHeaders = bandPowerHeaders(numChannels)
+    const auxHeaders = ["time", "shallow", "deep"]
+    const focusHeaders = ["time", "focused"]
     csv.writeToStream(newWriteStream(tsPath), [tsHeaders], { includeEndRowDelimiter: true })
-    csv.writeToStream(newWriteStream(bpPath), [bpHeaders], { includeEndRowDelimiter: true })
+    // csv.writeToStream(newWriteStream(bpPath), [bpHeaders], { includeEndRowDelimiter: true })
     csv.writeToStream(newWriteStream(auxPath), [auxHeaders], { includeEndRowDelimiter: true })
+    csv.writeToStream(newWriteStream(focusPath), [focusHeaders], { includeEndRowDelimiter: true })
 }
 
 const appendTimeSeries = (row) => {
@@ -68,6 +71,10 @@ const appendAux = (row) => {
     csv.writeToStream(newWriteStream(auxPath), [row], { includeEndRowDelimiter: true })
 }
 
+const appendFocus = (row) => {
+    csv.writeToStream(newWriteStream(focusPath), [row], { includeEndRowDelimiter: true })
+}
+
 const shutDownStreams = () => {
     timeSeriesStream.close()
     bandPowerStream.close()
@@ -79,6 +86,7 @@ module.exports = {
     shutDownStreams,
     appendBandPower,
     appendTimeSeries,
+    appendFocus,
     appendAux,
     initializeSessionCSVs
 }
