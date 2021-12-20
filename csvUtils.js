@@ -16,8 +16,10 @@ const numSessions = todaysSessions.length
 console.log(`numSessions is ${numSessions}`)
 
 // Structure is sessions_archive/date/Session_X/{timeSeries/bandPower/aux/focus}.csv
-const newSeshDir = path.join(todaysDir, `Session_${numSessions + 1}`)
+const newSessioNum = `Session_${numSessions + 1}`
+const newSeshDir = path.join(todaysDir, newSessioNum)
 fs.mkdirSync(newSeshDir)
+const dateAndSessionDir = path.join(dayFormatted, newSessioNum) // S3 dir notation
 const tsPath = path.join(newSeshDir, "timeSeries.csv")
 // const bpPath = path.join(newSeshDir, "bandPower.csv")
 const auxPath = path.join(newSeshDir, "auxillary.csv")
@@ -94,44 +96,6 @@ module.exports = {
     appendTimeSeries,
     appendFocus,
     appendAux,
-    initializeSessionCSVs
-}
-
-class CsvFile {
-    static write(filestream, rows, options) {
-        return new Promise((res, rej) => {
-            csv.writeToStream(filestream, rows, options)
-                .on('error', err => rej(err))
-                .on('finish', () => res());
-        });
-    }
-
-    constructor(opts) {
-        this.headers = opts.headers;
-        this.path = opts.path;
-        this.writeOpts = { headers: this.headers, includeEndRowDelimiter: true };
-    }
-
-    create(rows) {
-        return CsvFile.write(fs.createWriteStream(this.path), rows, { ...this.writeOpts });
-    }
-
-    append(rows) {
-        return CsvFile.write(fs.createWriteStream(this.path, { flags: 'a' }), rows, {
-            ...this.writeOpts,
-            // dont write the headers when appending
-            writeHeaders: false,
-        });
-    }
-
-    read() {
-        return new Promise((res, rej) => {
-            fs.readFile(this.path, (err, contents) => {
-                if (err) {
-                    return rej(err);
-                }
-                return res(contents);
-            });
-        });
-    }
+    initializeSessionCSVs,
+    dateAndSessionDir
 }

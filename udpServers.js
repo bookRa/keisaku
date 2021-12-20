@@ -15,9 +15,11 @@ const {
   initializeSessionCSVs,
   appendTimeSeries,
   appendBandPower,
-  appendAux, 
-  appendFocus} = require('./csvUtils')
-const { read } = require('fs')
+  appendAux,
+  appendFocus,
+  dateAndSessionDir } = require('./csvUtils')
+
+const { uploadSessionData } = require('./awsUtils')
 
 // OpenBCI GUI is running in Windows, this app is running in WSL
 let linuxIp = os.networkInterfaces().eth0[0].address
@@ -88,9 +90,9 @@ const tsParse = (dg, timeStamp) => {
   // {“type”:”eeg”, “data”:[0.0,1.0,2.0,3.0]}\r\n
   // (Filtered & Unfiltered) One float for each channel
   let jsonified = JSON.parse(dg.toString())
-  let thedata = jsonified.data
-  appendTimeSeries([timeStamp, ...thedata])
-  return thedata
+  let theData = jsonified.data
+  appendTimeSeries([timeStamp, ...theData])
+  return theData
 }
 
 const bandPowerParse = (dg, timeStamp) => {
@@ -108,15 +110,27 @@ const bandPowerParse = (dg, timeStamp) => {
 const auxParse = (dg, timeStamp) => {
   // {“type”:”auxiliary”,“data”:[0,1,0,1,0]}\r\n
   // Three (WiFi) or Five (Dongle) digital values as 0 or 1, corresponds to D11, D12, D13, D17, and D18
+  // Will be using Dongle for forseeable future
+  const usingDongle = true // TODO: Best place to put this config?
   let jsonified = JSON.parse(dg.toString())
-  let thedata = jsonified.data
-  // TODO: Plan to use D11 and D12 as input pins. So filter out the others
-  const D11PIN_SHALLOW = 0
-  const D12PIN_DEEP = 1
-  const filteredData = [thedata[D11PIN_SHALLOW], thedata[D12PIN_DEEP]]
-  appendAux([timeStamp, ...filteredData])
-  return filteredData
+  let theData = jsonified.data
 
+  // "accelerometer" and analog auxiliary dgram comes in on same port;
+  // TODO: could acceleration data be useful for filtering out artifacts?
+  let isDigitalReadData = (jsonified.type == "auxiliary") &&
+    // analog aux data will never (🤞) have length 5, so it's an easy check if we're using the dongle
+    // if we're using WiFi Shield, need exhaustive check for non 1/0 values
+    // TODO: is there a corner case where all the analog values happen to be <= 1?
+    ((usingDongle && theData.length === 5) || (!usingDongle && theData.every(value => value === 0 || value === 1)))
+
+  if (isDigitalReadData) {
+    // TODO: Plan to use D11 and D12 as input pins. So filter out the others
+    const D11PIN_SHALLOW = 0
+    const D12PIN_DEEP = 1
+    const filteredData = [theData[D11PIN_SHALLOW], theData[D12PIN_DEEP]]
+    appendAux([timeStamp, ...filteredData])
+    return filteredData
+  }
 }
 
 const focusParse = (dg, timeStamp) => {
@@ -133,24 +147,29 @@ let timeSeriesServer
 // let bandPowerServer
 let auxServer
 let focusServer
+let sessionStarted = false
 
 stdin.on('data', (keyPress) => {
 
+  if (!sessionStarted && keyPress === 's') {
+    console.log("starting session")
+    initializeSessionCSVs()
+    timeSeriesServer = createAndBind('TimeSeries', timeSeriesPort, TSCOLOR, tsParse)
+    focusServer = createAndBind('Focus', focusPort, FOCUSCOLOR, focusParse)
+    // bandPowerServer = createAndBind('BandPower', bandPowerPort, BPCOLOR, bandPowerParse)
+    auxServer = createAndBind('Auxillary', auxPort, AUXCOLOR, auxParse)
+    sessionStarted = true;
+
+  }
+
   // close app on ctrl-c or ctrl-d
-  if (keyPress === '\u0003' || keyPress === '\u0004') {
+  else if (keyPress === '\u0003' || keyPress === '\u0004') {
     console.log("aborting Session and closing without uploading data")
     process.exit()
   }
 
-  else if (keyPress === "s") {
-    initializeSessionCSVs()
-    timeSeriesServer = createAndBind('TimeSeries', timeSeriesPort, TSCOLOR, tsParse)
-    focusServer = createAndBind('Focus Estimate', focusPort, FOCUSCOLOR, focusParse, verbose = true)
-    // bandPowerServer = createAndBind('BandPower', bandPowerPort, BPCOLOR, bandPowerParse)
-    auxServer = createAndBind('Auxillary', auxPort, AUXCOLOR, auxParse, verbose = true)
-  }
-
-  else if (keyPress === "c") {
+  else if (sessionStarted && keyPress === "c") {
+    console.log("shutting down servers")
     // close and upload data to the cloud
     try { timeSeriesServer.close() }
     catch (e) { console.log("error closing timeseries server"); console.log(e) }
@@ -160,6 +179,14 @@ stdin.on('data', (keyPress) => {
     catch (e) { console.log("error closing focusServer"); console.log(e) }
     try { auxServer.close() }
     catch (e) { console.log("error closing auxServer"); console.log(e) }
-    process.exit()
+    console.log("uploading session data to cloud...")
+    // TODO
+    uploadSessionData(dateAndSessionDir)
+      .then(() => {
+        console.log("successfully uploaded session data")
+      }).catch(e => {
+        console.log("error uploading session data")
+        console.log(e)
+      }).finally(() => process.exit())
   }
 })
