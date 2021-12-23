@@ -93,6 +93,72 @@ const putSessionObjects = async (sessionDir) => {
     }
 }
 
+/**
+ * TODO: Because the GUI and Keisaku are two different applications, there is an
+ * implied order of operations for successfully uploading both Keisaku and GUI data to Cloud.
+ * This is succeptible to human error and should be fixed so that it just works automatically.
+ * 
+ * The (Windows) GUI stores Session data in C:\Users\<USER>\Documents\OpenBCI_GUI\Recordings
+ * Every Session (from "System Control Panel" > "Start Session" to "System Control Panel" > "Stop Session")
+ * is given its own directory with the nomenclature "OpenBCISession_YYYY-MM-DD_hh-mm-ss" (session start timestamp)
+ * 
+ * Every Data Stream within a Session (From "Start Data Stream" to "Stop Data Stream") is given its own
+ * recording txt file within the Session directory.
+ * Its nomenclature is "OpenBCI-RAW-YYYY-MM-DD_hh-mm-ss" (datastream start timestamp)
+ * 
+ * This function takes the most recent GUI Session (which should have the same Date as the Keisaku Data being uploaded)
+ *  and uploads all the RAW files to S3. Ideally, there should only be one Data Stream RAW per session. However if unforseen
+ * Stops and Starts happen while keisaku still running, having the RAW timestamps will be useful to filter out noisy or
+ * empty Keisaku data.
+ * 
+ * ASSUMPTION/Order of Operations: User should "Stop Data Stream" in GUI first (Stop Session optional), AND THEN press "C" in
+ * terminal to upload 
+ * 
+ * TODO: What happens if the function is called withle the Data Stream is still running? Will it upload a corrupted
+ * (or unclosed) CSV?
+ * 
+ */
+const uploadGUIRecording = async (bucketSessionPath = "TEST") => {
+
+    const GUI_RECORDING_PATH = "/mnt/c/Users/omara/Documents/OpenBCI_GUI/Recordings"
+    const today = new Date()
+    const todayFormatted = `${today.getFullYear()}-${today.getMonth() + 1}-20` // TODO: REPLACE 20 with ${today.getDate()}`
+    console.log(`todayFormat is ${todayFormatted}`)
+    const sessionDirs = fs.readdirSync(GUI_RECORDING_PATH)
+    const todaysSessions = sessionDirs.filter(f => f.includes(todayFormatted)).sort()
+    if (!todaysSessions.length) {
+        console.error('\x1b[35m%s\x1b[0m', `Unexpected Error: No GUI Session recordings were found`)
+        throw "No GUI Raw data found to upload"
+    }
+    if (todaysSessions.length > 1) {
+        console.error('\x1b[35m%s\x1b[0m', `WARNING: Multiple GUI Sessions found today, only uploading latest Data Streams`)
+
+    }
+    console.log("Today's sessions:")
+    console.log(todaysSessions)
+    const sessionToUploadDir = path.join(GUI_RECORDING_PATH, todaysSessions.at(-1))
+    const dataStreamFiles = fs.readdirSync(sessionToUploadDir)
+    console.log("session to Upload's data files")
+    console.log(dataStreamFiles)
+
+    for (file of dataStreamFiles) {
+        console.log("uploading " + file)
+        let fileStream = fs.createReadStream(path.join(sessionToUploadDir, file))
+
+        const putObjectInput = {
+            Bucket: "keisaku",
+            Key: bucketSessionPath +"/GUI_RAW_FILES/"+ file,
+            Body: fileStream
+        }
+
+        const putObjectCommand = new PutObjectCommand(putObjectInput)
+        const objectData = await client.send(putObjectCommand)
+        console.log("successfully uploaded " + file + " to keisaku bucket:")
+    }
+    
+
+}
+
 const uploadSessionData = async (sessionDir) => {
     await createKeisakuS3Bucket()
     await putSessionObjects(sessionDir)
@@ -102,3 +168,5 @@ const uploadSessionData = async (sessionDir) => {
 module.exports = {
     uploadSessionData
 }
+
+uploadGUIRecording()
