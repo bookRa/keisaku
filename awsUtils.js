@@ -122,7 +122,7 @@ const uploadGUIRecording = async (bucketSessionPath = "TEST") => {
 
     const GUI_RECORDING_PATH = "/mnt/c/Users/omara/Documents/OpenBCI_GUI/Recordings"
     const today = new Date()
-    const todayFormatted = `${today.getFullYear()}-${today.getMonth() + 1}-20` // TODO: REPLACE 20 with ${today.getDate()}`
+    const todayFormatted = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`
     console.log(`todayFormat is ${todayFormatted}`)
     const sessionDirs = fs.readdirSync(GUI_RECORDING_PATH)
     const todaysSessions = sessionDirs.filter(f => f.includes(todayFormatted)).sort()
@@ -155,6 +155,7 @@ const uploadGUIRecording = async (bucketSessionPath = "TEST") => {
         const objectData = await client.send(putObjectCommand)
         console.log("successfully uploaded " + file + " to keisaku bucket:")
     }
+    console.log("uploaded all raw GUI data")
     
 
 }
@@ -162,11 +163,10 @@ const uploadGUIRecording = async (bucketSessionPath = "TEST") => {
 const uploadSessionData = async (sessionDir) => {
     await createKeisakuS3Bucket()
     await putSessionObjects(sessionDir)
+    await uploadGUIRecording(sessionDir)
     console.log("All done :)")
 }
 
 module.exports = {
     uploadSessionData
 }
-
-uploadGUIRecording()
