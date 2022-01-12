@@ -18,5 +18,9 @@ implements a simple JavaScript UDP server which streams the received data straig
 
 ## Step 3 - Work with the Data in your new Data Lake using a Data Platform of your choice.
 
-7. I've personally chosen [DataBricks](https://databricks.com/) to [mount S3 Bucket](https://docs.databricks.com/data/data-sources/aws/amazon-s3.html#mount-a-bucket-using-an-aws-instance-profile&language-python) and begin exploring my data. However I'm not an expert in the whole platform ecosystem. There may be a better option for price and ease-of-use considerations. Or, of course, you can start writing Jupyter notebooks locally to explore your data!
+7. I've personally chosen [DataBricks](https://databricks.com/) to [mount S3 Bucket](https://docs.databricks.com/data/data-sources/aws/amazon-s3.html#mount-a-bucket-using-an-aws-instance-profile&language-python) and begin exploring my data. However I'm not an expert in the whole platform ecosystem. There may be a better option for price and ease-of-use considerations. Or, of course, you can start writing Jupyter notebooks locally to explore your data.
+
+## Step 4 - 🧘🏻‍♂️
+8. Collect more data.
+9. Stay tuned for updates here. And share with me your updates!
 
